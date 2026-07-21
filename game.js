@@ -255,6 +255,7 @@ class Ship {
     this.speedMultiplier = 1;
     this.speedTimer      = 0;
     this.shieldTimer     = 0;
+    this.tripleTimer     = 0;
   }
 
   applySpeed(duration) {
@@ -266,6 +267,10 @@ class Ship {
     this.shieldTimer = duration;
   }
 
+  applyTriple(duration) {
+    this.tripleTimer = duration;
+  }
+
   update(dt) {
     if (this.dead) return;
     if (this.invincible    > 0) this.invincible    -= dt;
@@ -275,6 +280,10 @@ class Ship {
       if (this.speedTimer <= 0) this.speedMultiplier = 1;
     }
     if (this.shieldTimer   > 0) this.shieldTimer   -= dt;
+    if (this.tripleTimer   > 0) {
+      this.tripleTimer -= dt;
+      if (this.tripleTimer <= 0) this.tripleTimer = 0;
+    }
 
     const ROT    = 3.5;   // rad/s
     const THRUST = 260 * this.speedMultiplier;  // px/s²
@@ -301,6 +310,13 @@ class Ship {
     const NOSE = 21;
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
+    if (this.tripleTimer > 0) {
+      return [
+        new Bullet(ox, oy, this.angle - 0.15),
+        new Bullet(ox, oy, this.angle),
+        new Bullet(ox, oy, this.angle + 0.15),
+      ];
+    }
     return [new Bullet(ox, oy, this.angle)];
   }
 
@@ -330,6 +346,18 @@ class Ship {
     // Brillo dorado cuando speed está activo
     if (this.speedTimer > 0) {
       ctx.strokeStyle = '#FFD700';
+      ctx.lineWidth = 3;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(v[0][0], v[0][1]);
+      for (let i = 1; i < v.length; i++) ctx.lineTo(v[i][0], v[i][1]);
+      ctx.closePath();
+      ctx.stroke();
+    }
+
+    // Brillo cyan cuando triple shot está activo
+    if (this.tripleTimer > 0) {
+      ctx.strokeStyle = '#00FFFF';
       ctx.lineWidth = 3;
       ctx.lineJoin = 'round';
       ctx.beginPath();
@@ -404,7 +432,7 @@ class PowerUp {
     const speed = rand(20, 50);
     this.vx = Math.cos(angle) * speed;
     this.vy = Math.sin(angle) * speed;
-    this.type = Math.random() < 0.5 ? 'speed' : 'shield';
+    this.type = ['speed', 'shield', 'triple'][Math.floor(Math.random() * 3)];
     this.ttl = 8;
     this.dead = false;
   }
@@ -421,20 +449,7 @@ class PowerUp {
     ctx.translate(this.x, this.y);
     ctx.lineWidth = 2;
 
-    if (this.type === 'shield') {
-      // Escudo: hexágono cian
-      ctx.fillStyle = '#00BFFF';
-      ctx.strokeStyle = '#0099CC';
-      ctx.beginPath();
-      for (let i = 0; i < 6; i++) {
-        const a = (i / 6) * Math.PI * 2 - Math.PI / 6;
-        const method = i === 0 ? 'moveTo' : 'lineTo';
-        ctx[method](Math.cos(a) * 10, Math.sin(a) * 10);
-      }
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-    } else {
+    if (this.type === 'speed') {
       // Rayo: polígono tipo relámpago
       ctx.fillStyle = '#FFD700';
       ctx.strokeStyle = '#FFA500';
@@ -449,8 +464,41 @@ class PowerUp {
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
+    } else if (this.type === 'shield') {
+      // Escudo: hexágono cian
+      ctx.fillStyle = '#00BFFF';
+      ctx.strokeStyle = '#0099CC';
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 - Math.PI / 6;
+        const method = i === 0 ? 'moveTo' : 'lineTo';
+        ctx[method](Math.cos(a) * 10, Math.sin(a) * 10);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      // Triple shot: 3 puntos en abanico
+      ctx.fillStyle = '#00FFFF';
+      ctx.strokeStyle = '#00CED1';
+      ctx.lineWidth = 2;
+      const r = 3;
+      // Centro
+      ctx.beginPath();
+      ctx.arc(0, -7, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      // Izquierda
+      ctx.beginPath();
+      ctx.arc(-5, 3, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      // Derecha
+      ctx.beginPath();
+      ctx.arc(5, 3, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
     }
-
     ctx.restore();
   }
 }
@@ -618,6 +666,8 @@ function update(dt) {
         ship.applySpeed(5);
       } else if (p.type === 'shield') {
         ship.applyShield(4);
+      } else if (p.type === 'triple') {
+        ship.applyTriple(5);
       }
     }
   }
@@ -682,6 +732,14 @@ function drawHUD() {
 
   for (let i = 0; i < lives; i++)
     drawLifeIcon(W - 16 - i * 22, 18);
+
+  // Indicador de triple shot activo
+  if (ship && ship.tripleTimer > 0) {
+    ctx.fillStyle = '#00FFFF';
+    ctx.font = '12px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`TRIPLE SHOT ${ship.tripleTimer.toFixed(1)}s`, 14, H - 30);
+  }
 
   // Indicador de velocidad activa
   if (ship && ship.speedTimer > 0) {
