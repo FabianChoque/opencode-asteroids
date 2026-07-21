@@ -25,6 +25,10 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Debug event
+        run: |
+          echo '${{ toJson(github.event) }}'
+
       - name: Run opencode
         uses: anomalyco/opencode/github@latest
         env:
