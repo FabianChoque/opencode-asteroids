@@ -211,11 +211,16 @@ class Ship {
     this.dead            = false;
     this.speedMultiplier = 1;
     this.speedTimer      = 0;
+    this.shieldTimer     = 0;
   }
 
   applySpeed(duration) {
     this.speedMultiplier = 2;
     this.speedTimer = duration;
+  }
+
+  applyShield(duration) {
+    this.shieldTimer = duration;
   }
 
   update(dt) {
@@ -226,6 +231,7 @@ class Ship {
       this.speedTimer -= dt;
       if (this.speedTimer <= 0) this.speedMultiplier = 1;
     }
+    if (this.shieldTimer   > 0) this.shieldTimer   -= dt;
 
     const ROT    = 3.5;   // rad/s
     const THRUST = 260 * this.speedMultiplier;  // px/s²
@@ -262,6 +268,17 @@ class Ship {
 
     ctx.save();
     ctx.translate(this.x, this.y);
+
+    // Aura del escudo (se dibuja antes de rotar para que sea siempre circular)
+    if (this.shieldTimer > 0) {
+      const pulse = 0.3 + Math.sin(Date.now() * 0.01) * 0.15;
+      ctx.strokeStyle = `rgba(0, 191, 255, ${pulse.toFixed(2)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 22, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
     ctx.rotate(this.angle);
 
     // Brillo dorado cuando speed está activo
@@ -346,7 +363,7 @@ class PowerUp {
     const speed = rand(20, 50);
     this.vx = Math.cos(angle) * speed;
     this.vy = Math.sin(angle) * speed;
-    this.type = 'speed';
+    this.type = Math.random() < 0.5 ? 'speed' : 'shield';
     this.ttl = 8;
     this.dead = false;
   }
@@ -361,21 +378,38 @@ class PowerUp {
   draw() {
     ctx.save();
     ctx.translate(this.x, this.y);
-    ctx.fillStyle = '#FFD700';
-    ctx.strokeStyle = '#FFA500';
     ctx.lineWidth = 2;
-    ctx.beginPath();
-    // Rayo: polígono tipo relámpago
-    ctx.moveTo(-3, -10);
-    ctx.lineTo(2, -10);
-    ctx.lineTo(-1, -2);
-    ctx.lineTo(4, -2);
-    ctx.lineTo(-3, 10);
-    ctx.lineTo(0, 2);
-    ctx.lineTo(-4, 2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+
+    if (this.type === 'shield') {
+      // Escudo: hexágono cian
+      ctx.fillStyle = '#00BFFF';
+      ctx.strokeStyle = '#0099CC';
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 - Math.PI / 6;
+        const method = i === 0 ? 'moveTo' : 'lineTo';
+        ctx[method](Math.cos(a) * 10, Math.sin(a) * 10);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      // Rayo: polígono tipo relámpago
+      ctx.fillStyle = '#FFD700';
+      ctx.strokeStyle = '#FFA500';
+      ctx.beginPath();
+      ctx.moveTo(-3, -10);
+      ctx.lineTo(2, -10);
+      ctx.lineTo(-1, -2);
+      ctx.lineTo(4, -2);
+      ctx.lineTo(-3, 10);
+      ctx.lineTo(0, 2);
+      ctx.lineTo(-4, 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
     ctx.restore();
   }
 }
@@ -518,7 +552,7 @@ function update(dt) {
   bullets   = bullets.filter(b => !b.dead);
 
   // Nave vs asteroide
-  if (ship.invincible <= 0) {
+  if (ship.invincible <= 0 && ship.shieldTimer <= 0) {
     for (const a of asteroids) {
       if (dist(ship, a) < ship.radius + a.radius * 0.82) {
         killShip();
@@ -533,6 +567,8 @@ function update(dt) {
       p.dead = true;
       if (p.type === 'speed') {
         ship.applySpeed(5);
+      } else if (p.type === 'shield') {
+        ship.applyShield(4);
       }
     }
   }
@@ -552,7 +588,7 @@ function update(dt) {
   bullets = bullets.filter(b => !b.dead);
 
   // Nave vs estrella fugaz
-  if (ship.invincible <= 0) {
+  if (ship.invincible <= 0 && ship.shieldTimer <= 0) {
     for (const s of shootingStars) {
       if (dist(ship, s) < ship.radius + s.radius) {
         killShip();
@@ -602,6 +638,14 @@ function drawHUD() {
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
     ctx.fillText(`VELOCIDAD ${ship.speedTimer.toFixed(1)}s`, 14, H - 14);
+  }
+
+  // Indicador de escudo activo
+  if (ship && ship.shieldTimer > 0) {
+    ctx.fillStyle = '#00BFFF';
+    ctx.font = '12px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`ESCUDO ${ship.shieldTimer.toFixed(1)}s`, 14, H - 28);
   }
 }
 
