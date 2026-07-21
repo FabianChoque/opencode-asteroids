@@ -66,6 +66,15 @@ const SKINS = [
     thrust: 'rgba(255, 170, 0, 0.85)',
     lineWidth: 1.5,
   },
+  {
+    name: 'Gigante',
+    verts: [[20,0], [-12,-9], [-7,0], [-12,9]],
+    stroke: '#8B00FF',
+    thrust: 'rgba(139, 0, 255, 0.85)',
+    lineWidth: 1.5,
+    scale: 2,
+    scoreMultiplier: 2,
+  },
 ];
 
 let skinIndex = parseInt(localStorage.getItem('skinIndex') || '0');
@@ -247,7 +256,7 @@ class Ship {
     this.angle  = -Math.PI / 2;
     this.vx     = 0;
     this.vy     = 0;
-    this.radius = 12;
+    this.radius = 12 * (SKINS[skinIndex].scale || 1);
     this.thrusting       = false;
     this.invincible      = 3;
     this.shootCooldown   = 0;
@@ -307,7 +316,7 @@ class Ship {
   tryShoot() {
     if (this.shootCooldown > 0 || this.dead) return [];
     this.shootCooldown = 0.2;
-    const NOSE = 21;
+    const NOSE = 21 * (SKINS[skinIndex].scale || 1);
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
     if (this.tripleTimer > 0) {
@@ -331,17 +340,20 @@ class Ship {
     ctx.save();
     ctx.translate(this.x, this.y);
 
+    const skinScale = skin.scale || 1;
+
     // Aura del escudo (se dibuja antes de rotar para que sea siempre circular)
     if (this.shieldTimer > 0) {
       const pulse = 0.3 + Math.sin(Date.now() * 0.01) * 0.15;
       ctx.strokeStyle = `rgba(0, 191, 255, ${pulse.toFixed(2)})`;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(0, 0, 22, 0, Math.PI * 2);
+      ctx.arc(0, 0, 22 * skinScale, 0, Math.PI * 2);
       ctx.stroke();
     }
 
     ctx.rotate(this.angle);
+    ctx.scale(skinScale, skinScale);
 
     // Brillo dorado cuando speed está activo
     if (this.speedTimer > 0) {
@@ -606,6 +618,7 @@ function update(dt) {
   if (pressed('Tab')) {
     skinIndex = (skinIndex + 1) % SKINS.length;
     localStorage.setItem('skinIndex', skinIndex);
+    ship.radius = 12 * (SKINS[skinIndex].scale || 1);
     skinNotification = 1.5;
   }
   if (skinNotification > 0) skinNotification -= dt;
@@ -635,7 +648,7 @@ function update(dt) {
       if (!a.dead && !b.dead && dist(b, a) < a.radius) {
         b.dead = true;
         a.dead = true;
-        score += POINTS[a.size];
+        score += POINTS[a.size] * (SKINS[skinIndex].scoreMultiplier || 1);
         explode(a.x, a.y, a.size * 5);
         newAsteroids.push(...a.split());
         // 15% de probabilidad de soltar power-up de velocidad
@@ -678,7 +691,7 @@ function update(dt) {
       if (!s.dead && !b.dead && dist(b, s) < s.radius) {
         b.dead = true;
         s.dead = true;
-        score += 300;
+        score += 300 * (SKINS[skinIndex].scoreMultiplier || 1);
         explode(s.x, s.y, 10);
       }
     }
@@ -704,7 +717,7 @@ function update(dt) {
 function drawLifeIcon(x, y) {
   const skin = SKINS[skinIndex];
   const v = skin.verts;
-  const scale = 0.45;
+  const scale = 0.45 * (skin.scale || 1);
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-Math.PI / 2);
