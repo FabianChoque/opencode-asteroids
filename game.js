@@ -211,11 +211,16 @@ class Ship {
     this.dead            = false;
     this.speedMultiplier = 1;
     this.speedTimer      = 0;
+    this.tripleTimer     = 0;
   }
 
   applySpeed(duration) {
     this.speedMultiplier = 2;
     this.speedTimer = duration;
+  }
+
+  applyTriple(duration) {
+    this.tripleTimer = duration;
   }
 
   update(dt) {
@@ -225,6 +230,10 @@ class Ship {
     if (this.speedTimer    > 0) {
       this.speedTimer -= dt;
       if (this.speedTimer <= 0) this.speedMultiplier = 1;
+    }
+    if (this.tripleTimer   > 0) {
+      this.tripleTimer -= dt;
+      if (this.tripleTimer <= 0) this.tripleTimer = 0;
     }
 
     const ROT    = 3.5;   // rad/s
@@ -252,6 +261,13 @@ class Ship {
     const NOSE = 21;
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
+    if (this.tripleTimer > 0) {
+      return [
+        new Bullet(ox, oy, this.angle - 0.15),
+        new Bullet(ox, oy, this.angle),
+        new Bullet(ox, oy, this.angle + 0.15),
+      ];
+    }
     return [new Bullet(ox, oy, this.angle)];
   }
 
@@ -267,6 +283,20 @@ class Ship {
     // Brillo dorado cuando speed está activo
     if (this.speedTimer > 0) {
       ctx.strokeStyle = '#FFD700';
+      ctx.lineWidth = 3;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo( 20,  0);
+      ctx.lineTo(-12, -9);
+      ctx.lineTo( -7,  0);
+      ctx.lineTo(-12,  9);
+      ctx.closePath();
+      ctx.stroke();
+    }
+
+    // Brillo cyan cuando triple shot está activo
+    if (this.tripleTimer > 0) {
+      ctx.strokeStyle = '#00FFFF';
       ctx.lineWidth = 3;
       ctx.lineJoin = 'round';
       ctx.beginPath();
@@ -346,7 +376,7 @@ class PowerUp {
     const speed = rand(20, 50);
     this.vx = Math.cos(angle) * speed;
     this.vy = Math.sin(angle) * speed;
-    this.type = 'speed';
+    this.type = Math.random() < 0.5 ? 'speed' : 'triple';
     this.ttl = 8;
     this.dead = false;
   }
@@ -361,21 +391,44 @@ class PowerUp {
   draw() {
     ctx.save();
     ctx.translate(this.x, this.y);
-    ctx.fillStyle = '#FFD700';
-    ctx.strokeStyle = '#FFA500';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    // Rayo: polígono tipo relámpago
-    ctx.moveTo(-3, -10);
-    ctx.lineTo(2, -10);
-    ctx.lineTo(-1, -2);
-    ctx.lineTo(4, -2);
-    ctx.lineTo(-3, 10);
-    ctx.lineTo(0, 2);
-    ctx.lineTo(-4, 2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+    if (this.type === 'speed') {
+      ctx.fillStyle = '#FFD700';
+      ctx.strokeStyle = '#FFA500';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      // Rayo: polígono tipo relámpago
+      ctx.moveTo(-3, -10);
+      ctx.lineTo(2, -10);
+      ctx.lineTo(-1, -2);
+      ctx.lineTo(4, -2);
+      ctx.lineTo(-3, 10);
+      ctx.lineTo(0, 2);
+      ctx.lineTo(-4, 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      // Triple shot: 3 puntos en abanico
+      ctx.fillStyle = '#00FFFF';
+      ctx.strokeStyle = '#00CED1';
+      ctx.lineWidth = 2;
+      const r = 3;
+      // Centro
+      ctx.beginPath();
+      ctx.arc(0, -7, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      // Izquierda
+      ctx.beginPath();
+      ctx.arc(-5, 3, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      // Derecha
+      ctx.beginPath();
+      ctx.arc(5, 3, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
     ctx.restore();
   }
 }
@@ -533,6 +586,8 @@ function update(dt) {
       p.dead = true;
       if (p.type === 'speed') {
         ship.applySpeed(5);
+      } else if (p.type === 'triple') {
+        ship.applyTriple(5);
       }
     }
   }
@@ -595,6 +650,14 @@ function drawHUD() {
 
   for (let i = 0; i < lives; i++)
     drawLifeIcon(W - 16 - i * 22, 18);
+
+  // Indicador de triple shot activo
+  if (ship && ship.tripleTimer > 0) {
+    ctx.fillStyle = '#00FFFF';
+    ctx.font = '12px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`TRIPLE SHOT ${ship.tripleTimer.toFixed(1)}s`, 14, H - 30);
+  }
 
   // Indicador de velocidad activa
   if (ship && ship.speedTimer > 0) {
