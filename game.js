@@ -12,7 +12,7 @@ const justPressed = {};
 window.addEventListener('keydown', e => {
   justPressed[e.code] = !keys[e.code];
   keys[e.code] = true;
-  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code))
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code))
     e.preventDefault();
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
@@ -28,6 +28,49 @@ const wrap  = (v, max) => ((v % max) + max) % max;
 const dist  = (a, b)   => Math.hypot(a.x - b.x, a.y - b.y);
 const rand  = (min, max) => min + Math.random() * (max - min);
 const randInt = (min, max) => Math.floor(rand(min, max + 1));
+
+// ── Skins ────────────────────────────────────────────────────────────────────
+const SKINS = [
+  {
+    name: 'Clásica',
+    verts: [[20,0], [-12,-9], [-7,0], [-12,9]],
+    stroke: '#ffffff',
+    thrust: 'rgba(255, 130, 0, 0.85)',
+    lineWidth: 1.5,
+  },
+  {
+    name: 'Flecha',
+    verts: [[22,0], [4,-12], [-8,-8], [-5,0], [-8,8], [4,12]],
+    stroke: '#00ccff',
+    thrust: 'rgba(0, 180, 255, 0.85)',
+    lineWidth: 1.5,
+  },
+  {
+    name: 'Rombo',
+    verts: [[20,0], [0,-11], [-14,0], [0,11]],
+    stroke: '#00ff88',
+    thrust: 'rgba(0, 255, 136, 0.85)',
+    lineWidth: 1.8,
+  },
+  {
+    name: 'Estrella',
+    verts: [[22,0], [6,-6], [10,-10], [2,-4], [-4,-10], [-6,-2], [-14,0], [-6,2], [-4,10], [2,4], [10,10], [6,6]],
+    stroke: '#ff44cc',
+    thrust: 'rgba(255, 68, 204, 0.85)',
+    lineWidth: 1.5,
+  },
+  {
+    name: 'Crucero',
+    verts: [[20,0], [14,-5], [2,-9], [-10,-7], [-14,0], [-10,7], [2,9], [14,5]],
+    stroke: '#ffaa00',
+    thrust: 'rgba(255, 170, 0, 0.85)',
+    lineWidth: 1.5,
+  },
+];
+
+let skinIndex = parseInt(localStorage.getItem('skinIndex') || '0');
+if (skinIndex < 0 || skinIndex >= SKINS.length) skinIndex = 0;
+let skinNotification = 0;
 
 // ── Bullet ────────────────────────────────────────────────────────────────────
 class Bullet {
@@ -266,6 +309,9 @@ class Ship {
     // Parpadeo durante invencibilidad de reaparición
     if (this.invincible > 0 && Math.floor(this.invincible * 8) % 2 === 0) return;
 
+    const skin = SKINS[skinIndex];
+    const v = skin.verts;
+
     ctx.save();
     ctx.translate(this.x, this.y);
 
@@ -287,24 +333,19 @@ class Ship {
       ctx.lineWidth = 3;
       ctx.lineJoin = 'round';
       ctx.beginPath();
-      ctx.moveTo( 20,  0);
-      ctx.lineTo(-12, -9);
-      ctx.lineTo( -7,  0);
-      ctx.lineTo(-12,  9);
+      ctx.moveTo(v[0][0], v[0][1]);
+      for (let i = 1; i < v.length; i++) ctx.lineTo(v[i][0], v[i][1]);
       ctx.closePath();
       ctx.stroke();
     }
 
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth   = 1.5;
+    ctx.strokeStyle = skin.stroke;
+    ctx.lineWidth   = skin.lineWidth;
     ctx.lineJoin    = 'round';
 
-    // Silueta clásica: triángulo con muesca trasera
     ctx.beginPath();
-    ctx.moveTo( 20,  0);   // nariz
-    ctx.lineTo(-12, -9);   // ala izquierda
-    ctx.lineTo( -7,  0);   // muesca trasera
-    ctx.lineTo(-12,  9);   // ala derecha
+    ctx.moveTo(v[0][0], v[0][1]);
+    for (let i = 1; i < v.length; i++) ctx.lineTo(v[i][0], v[i][1]);
     ctx.closePath();
     ctx.stroke();
 
@@ -314,7 +355,7 @@ class Ship {
       ctx.moveTo(-8, -4);
       ctx.lineTo(-8 - rand(6, 14), 0);
       ctx.lineTo(-8,  4);
-      ctx.strokeStyle = 'rgba(255, 130, 0, 0.85)';
+      ctx.strokeStyle = skin.thrust;
       ctx.stroke();
     }
 
@@ -513,6 +554,14 @@ function update(dt) {
     return;
   }
 
+  // Ciclar skins con Tab
+  if (pressed('Tab')) {
+    skinIndex = (skinIndex + 1) % SKINS.length;
+    localStorage.setItem('skinIndex', skinIndex);
+    skinNotification = 1.5;
+  }
+  if (skinNotification > 0) skinNotification -= dt;
+
   // Disparar
   if (pressed('Space')) {
     bullets.push(...ship.tryShoot());
@@ -603,17 +652,19 @@ function update(dt) {
 
 // ── Draw ──────────────────────────────────────────────────────────────────────
 function drawLifeIcon(x, y) {
+  const skin = SKINS[skinIndex];
+  const v = skin.verts;
+  const scale = 0.45;
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-Math.PI / 2);
-  ctx.strokeStyle = '#fff';
+  ctx.strokeStyle = skin.stroke;
   ctx.lineWidth   = 1.2;
   ctx.lineJoin    = 'round';
   ctx.beginPath();
-  ctx.moveTo( 9,  0);
-  ctx.lineTo(-6, -5);
-  ctx.lineTo(-3,  0);
-  ctx.lineTo(-6,  5);
+  ctx.moveTo(v[0][0] * scale, v[0][1] * scale);
+  for (let i = 1; i < v.length; i++)
+    ctx.lineTo(v[i][0] * scale, v[i][1] * scale);
   ctx.closePath();
   ctx.stroke();
   ctx.restore();
@@ -646,6 +697,17 @@ function drawHUD() {
     ctx.font = '12px monospace';
     ctx.textAlign = 'left';
     ctx.fillText(`ESCUDO ${ship.shieldTimer.toFixed(1)}s`, 14, H - 28);
+  }
+
+  // Notificación de skin
+  if (skinNotification > 0) {
+    const alpha = Math.min(1, skinNotification / 0.3);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = SKINS[skinIndex].stroke;
+    ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`SKIN: ${SKINS[skinIndex].name}`, W / 2, H - 40);
+    ctx.globalAlpha = 1;
   }
 }
 
